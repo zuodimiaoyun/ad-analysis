@@ -37,7 +37,7 @@ public class SummaryUtil {
                         .campaign(dayStat.getCampaign())
                         .day(dayStat.getDay())
                         .install(dayStat.getOtherEventCount() + Arrays.stream(dayStat.getEventCounts()).sum())
-                        .purchase(Arrays.stream(dayStat.getEventCounts()).sum())
+                        .purchase(getPurchaseCount(dayStat.getEventCounts(), dayStat.getDay()))
                         .purchaseValue(getPurchaseValue(dayStat.getEventCounts(), dayStat.getDay() ))
                         .build()
         ).collect(Collectors.toList());

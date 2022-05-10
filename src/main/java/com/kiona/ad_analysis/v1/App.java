@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class App {
-    private static final String dayPath = "/Users/kiona/Downloads/SKan-weekly.csv";
-    private static final String dayCampaignPath = "/Users/kiona/Downloads/SKan-campaign (3).csv";
+    private static final String dayPath = "";
+    private static final String dayCampaignPath = "/Users/yangshuaichao/Downloads/SKan-campaign (3).csv";
     private static final String outPutPath = "结果1.xlsx";
     private static final int startRow = 3;
 
