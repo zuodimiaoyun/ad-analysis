@@ -1,5 +1,10 @@
-package com.kiona.ad_analysis.v1;
+package com.kiona.ad_analysis.googleskan.util;
 
+import com.kiona.ad_analysis.googleskan.constant.GoogleSkanConstant;
+import com.kiona.ad_analysis.googleskan.model.DayCampaignStat;
+import com.kiona.ad_analysis.googleskan.model.DayCampaignSummary;
+import com.kiona.ad_analysis.googleskan.model.DayStat;
+import com.kiona.ad_analysis.googleskan.model.DaySummary;
 import lombok.extern.slf4j.Slf4j;
 
 import java.text.ParseException;

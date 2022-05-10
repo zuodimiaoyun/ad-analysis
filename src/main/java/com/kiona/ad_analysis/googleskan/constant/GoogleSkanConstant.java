@@ -1,4 +1,6 @@
-package com.kiona.ad_analysis.v1;
+package com.kiona.ad_analysis.googleskan.constant;
+
+import com.kiona.ad_analysis.googleskan.util.SummaryUtil;
 
 import java.util.HashMap;
 import java.util.Map;

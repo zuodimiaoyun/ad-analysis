@@ -1,7 +1,10 @@
-package com.kiona.ad_analysis.v1;
+package com.kiona.ad_analysis.googleskan.util;
 
-import lombok.Builder;
-import lombok.Data;
+import com.kiona.ad_analysis.googleskan.handler.CsvDataHandler;
+import com.kiona.ad_analysis.googleskan.model.DayCampaignStat;
+import com.kiona.ad_analysis.googleskan.model.DayStat;
+import com.kiona.ad_analysis.googleskan.model.Stat;
+import com.kiona.ad_analysis.googleskan.constant.GoogleSkanConstant;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -19,7 +22,7 @@ public class CsvDataParser {
 
     @SuppressWarnings("unchecked")
     public static <T extends Stat> List<T> parseToDayStat(List<List<String>> csvData, boolean hasCampaign){
-        HeaderIndex headerIndex = getHeaderIndex(csvData, hasCampaign);
+        CsvDataHandler.HeaderIndex headerIndex = getHeaderIndex(csvData, hasCampaign);
         csvData.remove(0);
         List<Stat> dayStats = new ArrayList<>();
         for (int row = 0; row < csvData.size(); row++) {
@@ -58,16 +61,7 @@ public class CsvDataParser {
     }
 
 
-    @Data
-    @Builder
-    private static class HeaderIndex{
-        private int dayIndex;
-        private int campaignIndex;
-        private int otherEventIndex;
-        private Map<Integer, Integer> indexToEventNo;
-    }
-
-    private static HeaderIndex getHeaderIndex(List<List<String>> csvData, boolean hasCampaign){
+  private static CsvDataHandler.HeaderIndex getHeaderIndex(List<List<String>> csvData, boolean hasCampaign){
         int dayIndex = csvData.get(0).indexOf(GoogleSkanConstant.HEADER_DAY);
         int campaignIndex = csvData.get(0).indexOf(GoogleSkanConstant.HEADER_CAMPAIGN);
         int otherEventIndex = csvData.get(0).indexOf(GoogleSkanConstant.HEADER_OTHER_EVENT);
@@ -92,10 +86,10 @@ public class CsvDataParser {
         if(indexToEventNo.isEmpty()) {
             throw new RuntimeException("未解析到已知事件表头！");
         }
-        return HeaderIndex.builder().dayIndex(dayIndex).campaignIndex(campaignIndex).otherEventIndex(otherEventIndex).indexToEventNo(indexToEventNo).build();
+        return CsvDataHandler.HeaderIndex.builder().dayIndex(dayIndex).campaignIndex(campaignIndex).otherEventIndex(otherEventIndex).indexToEventNo(indexToEventNo).build();
     }
 
-    private static boolean checkColumns(int rowNum, int columnSize, HeaderIndex headerIndex, boolean hasCampaign){
+    private static boolean checkColumns(int rowNum, int columnSize, CsvDataHandler.HeaderIndex headerIndex, boolean hasCampaign){
         boolean success = true;
         if(headerIndex.getDayIndex() >= columnSize){
             log.warn("行数：" + rowNum + ", 日期不可解析");

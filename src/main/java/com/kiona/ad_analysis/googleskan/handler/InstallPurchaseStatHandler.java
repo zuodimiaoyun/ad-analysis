@@ -1,19 +1,33 @@
-package com.kiona.ad_analysis.v1;
+package com.kiona.ad_analysis.googleskan.handler;
 
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.ExcelWriter;
 import com.alibaba.excel.write.metadata.WriteSheet;
+import com.kiona.ad_analysis.googleskan.model.DayCampaignStat;
+import com.kiona.ad_analysis.googleskan.model.DayCampaignSummary;
+import com.kiona.ad_analysis.googleskan.model.DayStat;
+import com.kiona.ad_analysis.googleskan.model.DaySummary;
+import com.kiona.ad_analysis.googleskan.util.SummaryUtil;
 import com.kiona.ad_analysis.util.CsvUtil;
+import com.kiona.ad_analysis.googleskan.util.CsvDataParser;
+import io.vertx.core.Handler;
+import io.vertx.core.MultiMap;
+import io.vertx.core.parsetools.RecordParser;
+import io.vertx.ext.web.FileUpload;
+import io.vertx.ext.web.RoutingContext;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class App {
+public class InstallPurchaseStatHandler implements Handler<RoutingContext> {
+
     private static final String dayPath = "";
     private static final String dayCampaignPath = "/Users/yangshuaichao/Downloads/SKan-campaign (3).csv";
     private static final String outPutPath = "结果1.xlsx";
@@ -55,5 +69,11 @@ public class App {
 
     }
 
+  @Override
+  public void handle(RoutingContext ctx) {
+    ctx.request().setExpectMultipart(true);
+    CsvDataHandler csvDataHandler = new CsvDataHandler(3);
+    ctx.request().uploadHandler(csvDataHandler);
 
+  }
 }

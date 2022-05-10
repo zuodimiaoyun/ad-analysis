@@ -1,4 +1,4 @@
-package com.kiona.ad_analysis.v1;
+package com.kiona.ad_analysis.googleskan.model;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import lombok.Builder;
@@ -6,9 +6,7 @@ import lombok.Data;
 
 @Data
 @Builder
-public class DayCampaignSummary{
-    @ExcelProperty("Campaign")
-    private String campaign;
+public class DaySummary {
     @ExcelProperty("日期")
     private String day;
     @ExcelProperty("安装数量")
@@ -17,4 +15,5 @@ public class DayCampaignSummary{
     private int purchase;
     @ExcelProperty("支付价值")
     private double purchaseValue;
+
 }
