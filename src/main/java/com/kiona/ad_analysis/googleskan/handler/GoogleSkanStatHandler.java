@@ -28,11 +28,18 @@ public class GoogleSkanStatHandler implements Handler<RoutingContext> {
         GoogleSkanDataHandler dataHandler = new GoogleSkanDataHandler();
         ctx.request()
             .uploadHandler(dataHandler)
-            .endHandler(x ->
-                ctx.response()
-                    .putHeader(HttpHeaders.CONTENT_TYPE, MimeMapping.getMimeTypeForFilename(excelName))
-                    .putHeader("Content-Disposition", "attachment; filename=\"" + excelName + "\"")
-                    .end(Buffer.buffer(getExcelStream(dataHandler.getSummaries()).toByteArray()))
+            .endHandler(x -> {
+                    if (dataHandler.getSummaries().isEmpty()) {
+                        ctx.response()
+                            .end("文件未上传！", "GBK");
+                    } else {
+                        ctx.response()
+                            .putHeader(HttpHeaders.CONTENT_TYPE, MimeMapping.getMimeTypeForFilename(excelName))
+                            .putHeader("Content-Disposition", "attachment; filename=\"" + excelName + "\"")
+                            .end(Buffer.buffer(getExcelStream(dataHandler.getSummaries()).toByteArray()));
+                    }
+                }
+
             )
         ;
     }

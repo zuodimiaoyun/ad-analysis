@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.charset.Charset;
 import java.util.*;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -26,20 +25,17 @@ import java.util.stream.IntStream;
  */
 @Slf4j
 public class GoogleSkanDataHandler implements Handler<HttpServerFileUpload> {
-    private static final Pattern EVENT_HEADER_PATTERN = Pattern.compile("(\\d+)_SKAdNetwork Conversions");
 
     private final int startRow = 3;
 
     private int currentRow = 0;
     private int currentColumn = 0;
-    private boolean hasCampaign = false;
     private Header header;
     private final List<Summary> summaries = new ArrayList<>();
 
     @Override
     public void handle(HttpServerFileUpload httpServerFileUpload) {
         reset();
-        hasCampaign = "campaignFile".equals(httpServerFileUpload.name());
         httpServerFileUpload.handler(RecordParser.newDelimited("\n", buffer -> {
             currentRow++;
             if (currentRow < startRow) {
@@ -52,28 +48,25 @@ public class GoogleSkanDataHandler implements Handler<HttpServerFileUpload> {
                 return;
             }
             if (currentRow > startRow) {
-                parseData(rowData, hasCampaign);
+                parseData(rowData);
             }
         }));
     }
 
     private void reset() {
+        System.out.println();
         this.currentColumn = 0;
         this.currentRow = 0;
-        this.hasCampaign = false;
         this.header = null;
     }
 
     private Header parseHeader(List<String> headers) {
-        int dayIndex = headers.indexOf(GoogleSkanConstant.HEADER_DAY);
-        int campaignIndex = headers.indexOf(GoogleSkanConstant.HEADER_CAMPAIGN);
-        int otherEventIndex = headers.indexOf(GoogleSkanConstant.HEADER_OTHER_EVENT);
+        int dayIndex = findHeaderIndex(headers, GoogleSkanConstant.HEADER_DAY);
+        int campaignIndex = findHeaderIndex(headers, GoogleSkanConstant.HEADER_CAMPAIGN);
+        int otherEventIndex = findHeaderIndex(headers, GoogleSkanConstant.HEADER_OTHER_EVENT);
 
         if (dayIndex < 0) {
             throw new RuntimeException("未解析到日期表头！");
-        }
-        if (hasCampaign && campaignIndex < 0) {
-            throw new RuntimeException("未解析到Campaign表头！");
         }
         if (otherEventIndex < 0) {
             throw new RuntimeException("未解析到未知事件表头！");
@@ -82,7 +75,7 @@ public class GoogleSkanDataHandler implements Handler<HttpServerFileUpload> {
         Map<Integer, Integer> indexToEventNo = new HashMap<>(86);
         IntStream.range(0, headers.size()).forEach(headerIndex -> {
             String header = headers.get(headerIndex);
-            Matcher matcher = EVENT_HEADER_PATTERN.matcher(header);
+            Matcher matcher = GoogleSkanConstant.EVENT_HEADER_PATTERN.matcher(header);
             if (matcher.matches()) {
                 indexToEventNo.put(headerIndex, Integer.parseInt(matcher.group(1)));
             }
@@ -100,16 +93,20 @@ public class GoogleSkanDataHandler implements Handler<HttpServerFileUpload> {
             .build();
     }
 
-    public void parseData(List<String> rowData, boolean hasCampaign) {
+    private int findHeaderIndex(List<String> headers, String headerPattern) {
+        return IntStream.range(0, headers.size()).filter(index -> headers.get(index).matches(headerPattern)).findFirst().orElse(-1);
+    }
+
+    public void parseData(List<String> rowData) {
         currentColumn++;
-        if (!checkColumns(currentColumn, rowData.size(), header, hasCampaign)) {
+        if (!checkColumns(currentColumn, rowData.size(), header)) {
             log.warn("第" + currentColumn + "行，存在不可解析数据，跳过！！！！！");
             return;
         }
 
         String day = rowData.get(header.getDayIndex());
         int otherEventCount = Integer.parseInt(rowData.get(header.getOtherEventIndex()));
-        String campaign = hasCampaign ? rowData.get(header.getCampaignIndex()) : null;
+        String campaign = header.getCampaignIndex() >= 0 ? rowData.get(header.getCampaignIndex()) : null;
         int[] eventCounts = parseEventCounts(rowData);
 
         summaries.add(summary(day, campaign, otherEventCount, eventCounts));
@@ -162,14 +159,10 @@ public class GoogleSkanDataHandler implements Handler<HttpServerFileUpload> {
             .sum();
     }
 
-    private boolean checkColumns(int rowNum, int columnSize, Header headerIndex, boolean hasCampaign) {
+    private boolean checkColumns(int rowNum, int columnSize, Header headerIndex) {
         boolean success = true;
         if (headerIndex.getDayIndex() >= columnSize) {
             log.warn("行数：" + rowNum + ", 日期不可解析");
-            success = false;
-        }
-        if (hasCampaign && headerIndex.getCampaignIndex() >= columnSize) {
-            log.warn("行数：" + rowNum + ", Campaign不可解析");
             success = false;
         }
         if (headerIndex.getOtherEventIndex() >= columnSize) {

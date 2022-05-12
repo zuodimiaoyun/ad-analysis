@@ -5,9 +5,8 @@
     <title>Title</title>
 </head>
 <body>
-<form action="/api/v1/googleskan/analysis" method="post">
-    <label>上传天文件</label><input type="file" name="day1File">
-    <label>上传Campaign文件</label><input type="file" name="campaignFile">
+<form action="/api/v1/googleskan/analysis" method="post" enctype="multipart/form-data">
+    <input type="file" name="files" accept=".csv" multiple>
     <button type="submit">提交</button>
 </form>
 </body>
