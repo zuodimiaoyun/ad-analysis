@@ -13,7 +13,9 @@ public class GoogleSkanStatHandler implements Handler<RoutingContext> {
         GoogleSkanDataHandler dataHandler = new GoogleSkanDataHandler(ctx.response());
         ctx.request()
             .uploadHandler(dataHandler)
-            .endHandler(x -> dataHandler.end());
+            .endHandler(x -> dataHandler.end())
+            .exceptionHandler(x -> ctx.response().setStatusCode(500).setStatusMessage("failed").end("failed"))
+        ;
     }
 
 

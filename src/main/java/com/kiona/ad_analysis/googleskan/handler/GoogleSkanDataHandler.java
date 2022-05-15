@@ -43,11 +43,12 @@ public class GoogleSkanDataHandler implements Handler<HttpServerFileUpload> {
 
 
     @Override
-    public void handle(HttpServerFileUpload httpServerFileUpload) {
+    public void handle(HttpServerFileUpload upload) {
+        log.info("paramName:{}, fileName:{}, fileSize:{}, fileCharset:{}", upload.name(), upload.filename(), upload.size(), upload.charset());
         Promise<List<Summary>> promise = Promise.promise();
         futures.add(promise.future());
         GoogleSkanFileHandler handler = new GoogleSkanFileHandler(promise);
-        httpServerFileUpload
+        upload
             .handler(handler)
             .endHandler(x -> handler.end())
             .exceptionHandler(e -> log.error(e.getMessage()));
@@ -58,10 +59,12 @@ public class GoogleSkanDataHandler implements Handler<HttpServerFileUpload> {
         CompositeFuture.all(Collections.unmodifiableList(futures)).onComplete(ar -> {
             if (ar.succeeded()) {
                 response
-                    .setChunked(true)
                     .putHeader(HttpHeaders.CONTENT_TYPE, MimeMapping.getMimeTypeForFilename(excelName))
                     .putHeader("Content-Disposition", "attachment; filename=\"" + excelName + "\"")
                     .end(Buffer.buffer(getExcelStream(ar.result().list()).toByteArray()));
+            } else {
+                log.error("读取数据失败");
+                response.end("读取数据失败！");
             }
         });
     }
