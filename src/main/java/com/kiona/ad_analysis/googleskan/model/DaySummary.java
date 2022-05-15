@@ -8,7 +8,7 @@ import lombok.experimental.SuperBuilder;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @SuperBuilder
-public class DaySummary extends Summary{
-    @ExcelProperty("日期")
+public class DaySummary extends Summary {
+    @ExcelProperty("按日细分")
     private String day;
 }

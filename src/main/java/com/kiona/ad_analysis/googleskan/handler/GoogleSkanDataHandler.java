@@ -1,22 +1,29 @@
 package com.kiona.ad_analysis.googleskan.handler;
 
-import com.kiona.ad_analysis.googleskan.constant.GoogleSkanConstant;
-import com.kiona.ad_analysis.googleskan.constant.GoogleSkanPurchaseValue;
+import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.ExcelWriter;
+import com.alibaba.excel.write.metadata.WriteSheet;
 import com.kiona.ad_analysis.googleskan.model.DayCampaignSummary;
 import com.kiona.ad_analysis.googleskan.model.DaySummary;
 import com.kiona.ad_analysis.googleskan.model.Summary;
+import io.vertx.core.CompositeFuture;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Promise;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpServerFileUpload;
-import io.vertx.core.parsetools.RecordParser;
-import lombok.Builder;
-import lombok.Data;
+import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.http.impl.MimeMapping;
 import lombok.extern.slf4j.Slf4j;
 
-import java.nio.charset.Charset;
-import java.util.*;
-import java.util.regex.Matcher;
+import java.io.ByteArrayOutputStream;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * @author yangshuaichao
@@ -26,172 +33,79 @@ import java.util.stream.IntStream;
 @Slf4j
 public class GoogleSkanDataHandler implements Handler<HttpServerFileUpload> {
 
-    private final int startRow = 3;
 
-    private int currentRow = 0;
-    private int currentColumn = 0;
-    private Header header;
-    private final List<Summary> summaries = new ArrayList<>();
+    private final List<Future<List<Summary>>> futures = new CopyOnWriteArrayList<>();
+    private final HttpServerResponse response;
+
+    public GoogleSkanDataHandler(HttpServerResponse response) {
+        this.response = response;
+    }
+
 
     @Override
     public void handle(HttpServerFileUpload httpServerFileUpload) {
-        reset();
-        httpServerFileUpload.handler(RecordParser.newDelimited("\n", buffer -> {
-            currentRow++;
-            if (currentRow < startRow) {
-                return;
-            }
-            List<String> rowData = Arrays.asList(new String(buffer.getBytes(), Charset.forName("unicode")).split("\t"));
-
-            if (currentRow == startRow) {
-                header = parseHeader(rowData);
-                return;
-            }
-            if (currentRow > startRow) {
-                parseData(rowData);
-            }
-        }));
+        Promise<List<Summary>> promise = Promise.promise();
+        futures.add(promise.future());
+        GoogleSkanFileHandler handler = new GoogleSkanFileHandler(promise);
+        httpServerFileUpload
+            .handler(handler)
+            .endHandler(x -> handler.end())
+            .exceptionHandler(e -> log.error(e.getMessage()));
     }
 
-    private void reset() {
-        System.out.println();
-        this.currentColumn = 0;
-        this.currentRow = 0;
-        this.header = null;
-    }
-
-    private Header parseHeader(List<String> headers) {
-        int dayIndex = findHeaderIndex(headers, GoogleSkanConstant.HEADER_DAY);
-        int campaignIndex = findHeaderIndex(headers, GoogleSkanConstant.HEADER_CAMPAIGN);
-        int otherEventIndex = findHeaderIndex(headers, GoogleSkanConstant.HEADER_OTHER_EVENT);
-
-        if (dayIndex < 0) {
-            throw new RuntimeException("未解析到日期表头！");
-        }
-        if (otherEventIndex < 0) {
-            throw new RuntimeException("未解析到未知事件表头！");
-        }
-
-        Map<Integer, Integer> indexToEventNo = new HashMap<>(86);
-        IntStream.range(0, headers.size()).forEach(headerIndex -> {
-            String header = headers.get(headerIndex);
-            Matcher matcher = GoogleSkanConstant.EVENT_HEADER_PATTERN.matcher(header);
-            if (matcher.matches()) {
-                indexToEventNo.put(headerIndex, Integer.parseInt(matcher.group(1)));
+    public void end() {
+        String excelName = "GoogleSkanResult.xlsx";
+        CompositeFuture.all(Collections.unmodifiableList(futures)).onComplete(ar -> {
+            if (ar.succeeded()) {
+                response
+                    .setChunked(true)
+                    .putHeader(HttpHeaders.CONTENT_TYPE, MimeMapping.getMimeTypeForFilename(excelName))
+                    .putHeader("Content-Disposition", "attachment; filename=\"" + excelName + "\"")
+                    .end(Buffer.buffer(getExcelStream(ar.result().list()).toByteArray()));
             }
         });
-
-        if (indexToEventNo.isEmpty()) {
-            throw new RuntimeException("未解析到已知事件表头！");
-        }
-
-        return Header.builder()
-            .dayIndex(dayIndex)
-            .campaignIndex(campaignIndex)
-            .otherEventIndex(otherEventIndex)
-            .indexToEventNo(indexToEventNo)
-            .build();
     }
 
-    private int findHeaderIndex(List<String> headers, String headerPattern) {
-        return IntStream.range(0, headers.size()).filter(index -> headers.get(index).matches(headerPattern)).findFirst().orElse(-1);
-    }
-
-    public void parseData(List<String> rowData) {
-        currentColumn++;
-        if (!checkColumns(currentColumn, rowData.size(), header)) {
-            log.warn("第" + currentColumn + "行，存在不可解析数据，跳过！！！！！");
-            return;
-        }
-
-        String day = rowData.get(header.getDayIndex());
-        int otherEventCount = Integer.parseInt(rowData.get(header.getOtherEventIndex()));
-        String campaign = header.getCampaignIndex() >= 0 ? rowData.get(header.getCampaignIndex()) : null;
-        int[] eventCounts = parseEventCounts(rowData);
-
-        summaries.add(summary(day, campaign, otherEventCount, eventCounts));
-    }
-
-    private int[] parseEventCounts(List<String> rowData) {
-        int[] eventCounts = new int[64];
-        for (Map.Entry<Integer, Integer> indexToEventNoEntry : header.getIndexToEventNo().entrySet()) {
-            int eventIndex = indexToEventNoEntry.getKey();
-            int columnNum = eventIndex + 1;
-            int eventNo = indexToEventNoEntry.getValue();
-            int eventCount = 0;
-            try {
-                eventCount = Integer.parseInt(rowData.get(eventIndex).replace("\"", "").replace(",", ""));
-            } catch (NumberFormatException ex) {
-                log.warn("第" + currentColumn + "行，第" + columnNum + "列，存在不可解析数据，跳过！！！！！");
+    private ByteArrayOutputStream getExcelStream(List<List<Summary>> summaries) {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ExcelWriter excelWriter = EasyExcel.write(outputStream).build();
+        try {
+            List<DaySummary> daySummaries = getDaySummaries(summaries);
+            if (!daySummaries.isEmpty()) {
+                WriteSheet writeSheetDay = EasyExcel.writerSheet("按天").head(DaySummary.class).build();
+                excelWriter.write(daySummaries, writeSheetDay);
             }
-            eventCounts[eventNo] = eventCount;
+
+            List<DayCampaignSummary> dayCampaignSummaries = getDayCampaignSummaries(summaries);
+            if (!dayCampaignSummaries.isEmpty()) {
+                WriteSheet writeSheetDayCampaign = EasyExcel.writerSheet("按Campaign天").head(DayCampaignSummary.class).build();
+                excelWriter.write(dayCampaignSummaries, writeSheetDayCampaign);
+            }
+        } catch (Exception e) {
+            log.error("导出excel失败", e);
+        } finally {
+            excelWriter.finish();
         }
-        return eventCounts;
+        return outputStream;
     }
 
-    private Summary summary(String day, String campaign, int otherEventCount, int[] eventCounts) {
-        int install = otherEventCount + Arrays.stream(eventCounts).sum();
-        int purchase = getPurchaseCount(day, eventCounts);
-        double purchaseValue = getPurchaseValue(day, eventCounts);
-        Summary summary;
-        if (campaign != null) {
-            summary = DayCampaignSummary.builder().day(day).campaign(campaign).build();
-        } else {
-            summary = DaySummary.builder().day(day).build();
-        }
-        summary.setInstall(install);
-        summary.setPurchase(purchase);
-        summary.setPurchaseValue(purchaseValue);
-        return summary;
+    private List<DaySummary> getDaySummaries(List<List<Summary>> summaries) {
+        return summaries.stream()
+            .flatMap(Collection::stream)
+            .filter(s -> s.getClass() == DaySummary.class)
+            .map(s -> (DaySummary) s)
+            .sorted(Comparator.comparing(DaySummary::getDay))
+            .collect(Collectors.toList());
     }
 
-    private int getPurchaseCount(String day, int[] eventCounts) {
-        return IntStream.range(0, eventCounts.length)
-            .filter(eventNo -> GoogleSkanPurchaseValue.isPurchaseEvent(eventNo, day))
-            .map(eventNo -> eventCounts[eventNo])
-            .sum();
+    private List<DayCampaignSummary> getDayCampaignSummaries(List<List<Summary>> summaries) {
+        return summaries.stream()
+            .flatMap(Collection::stream)
+            .filter(s -> s.getClass() == DayCampaignSummary.class)
+            .map(s -> (DayCampaignSummary) s)
+            .sorted(Comparator.comparing(DayCampaignSummary::getCampaign).thenComparing(DayCampaignSummary::getDay))
+            .collect(Collectors.toList());
+
     }
 
-    private static double getPurchaseValue(String day, int[] eventCounts) {
-        return IntStream.range(0, eventCounts.length)
-            .filter(eventNo -> GoogleSkanPurchaseValue.isPurchaseEvent(eventNo, day))
-            .mapToDouble(eventNo -> GoogleSkanPurchaseValue.getValue(eventNo, day) * eventCounts[eventNo])
-            .sum();
-    }
-
-    private boolean checkColumns(int rowNum, int columnSize, Header headerIndex) {
-        boolean success = true;
-        if (headerIndex.getDayIndex() >= columnSize) {
-            log.warn("行数：" + rowNum + ", 日期不可解析");
-            success = false;
-        }
-        if (headerIndex.getOtherEventIndex() >= columnSize) {
-            log.warn("行数：" + rowNum + ", 未知事件不可解析");
-            success = false;
-        }
-
-        List<Integer> fails = headerIndex.getIndexToEventNo().entrySet().stream().filter(e -> e.getKey() >= columnSize).map(Map.Entry::getValue).collect(Collectors.toList());
-        if (!fails.isEmpty()) {
-            log.warn("行数：" + rowNum + ", 已知事件不可解析，事件id：" + fails);
-            success = false;
-        }
-        return success;
-    }
-
-    @Data
-    @Builder
-    public static class Header {
-        private int dayIndex;
-        private int campaignIndex;
-        private int otherEventIndex;
-        private Map<Integer, Integer> indexToEventNo;
-    }
-
-    public List<Summary> getSummaries() {
-        return summaries;
-    }
-
-    public int getCurrentRow() {
-        return currentRow;
-    }
 }

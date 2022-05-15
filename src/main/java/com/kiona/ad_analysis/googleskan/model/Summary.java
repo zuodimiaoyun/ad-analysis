@@ -1,7 +1,6 @@
 package com.kiona.ad_analysis.googleskan.model;
 
 import com.alibaba.excel.annotation.ExcelProperty;
-import lombok.Builder;
 import lombok.Data;
 import lombok.experimental.SuperBuilder;
 
@@ -13,10 +12,12 @@ import lombok.experimental.SuperBuilder;
 @Data
 @SuperBuilder
 public class Summary {
-  @ExcelProperty("安装数量")
-  private int install;
-  @ExcelProperty("支付数量")
-  private int purchase;
-  @ExcelProperty("支付价值")
-  private double purchaseValue;
+    @ExcelProperty("花费金额 (USD)")
+    private double costMoney;
+    @ExcelProperty("应用安装")
+    private int install;
+    @ExcelProperty("购物")
+    private int purchase;
+    @ExcelProperty("购物转化价值")
+    private double purchaseValue;
 }
