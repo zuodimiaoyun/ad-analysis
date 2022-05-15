@@ -2,6 +2,7 @@ package com.kiona.ad_analysis.googleskan.model;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
 /**
@@ -11,6 +12,7 @@ import lombok.experimental.SuperBuilder;
  */
 @Data
 @SuperBuilder
+@NoArgsConstructor
 public class Summary {
     @ExcelProperty("花费金额 (USD)")
     private double costMoney;

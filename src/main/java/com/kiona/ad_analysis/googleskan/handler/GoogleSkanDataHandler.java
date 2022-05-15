@@ -3,6 +3,7 @@ package com.kiona.ad_analysis.googleskan.handler;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.ExcelWriter;
 import com.alibaba.excel.write.metadata.WriteSheet;
+import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
 import com.kiona.ad_analysis.googleskan.model.DayCampaignSummary;
 import com.kiona.ad_analysis.googleskan.model.DaySummary;
 import com.kiona.ad_analysis.googleskan.model.Summary;
@@ -71,7 +72,7 @@ public class GoogleSkanDataHandler implements Handler<HttpServerFileUpload> {
 
     private ByteArrayOutputStream getExcelStream(List<List<Summary>> summaries) {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ExcelWriter excelWriter = EasyExcel.write(outputStream).build();
+        ExcelWriter excelWriter = EasyExcel.write(outputStream).registerWriteHandler(new LongestMatchColumnWidthStyleStrategy()).build();
         try {
             List<DaySummary> daySummaries = getDaySummaries(summaries);
             if (!daySummaries.isEmpty()) {

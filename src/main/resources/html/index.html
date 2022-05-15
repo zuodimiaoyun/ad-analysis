@@ -5,8 +5,15 @@
     <title>Title</title>
 </head>
 <body>
+<h1> Google </h1>
 <form action="/api/v1/googleskan/analysis" method="post" enctype="multipart/form-data">
     <input type="file" name="files" accept=".csv" multiple>
+    <button type="submit">提交</button>
+</form>
+
+<h1> Facebook </h1>
+<form action="/api/v1/facebookskan/analysis" method="post" enctype="multipart/form-data">
+    <input type="file" name="files" accept=".xlsx" multiple>
     <button type="submit">提交</button>
 </form>
 </body>

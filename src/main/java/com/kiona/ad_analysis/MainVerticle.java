@@ -1,6 +1,7 @@
 package com.kiona.ad_analysis;
 
 import com.kiona.ad_analysis.auth.PropertyFileAuthentication;
+import com.kiona.ad_analysis.facebookskan.handler.FacebookStatHandler;
 import com.kiona.ad_analysis.googleskan.handler.GoogleSkanStatHandler;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
@@ -22,6 +23,7 @@ public class MainVerticle extends AbstractVerticle {
         Router router = Router.router(vertx);
 //        router.route().handler(getSessionHandler());
 //        router.post("/login").handler(getAuthHandler());
+        router.post("/api/v1/facebookskan/analysis").handler(new FacebookStatHandler());
         router.post("/api/v1/googleskan/analysis").handler(new GoogleSkanStatHandler());
         router.route("/c").respond(ctx -> Future.succeededFuture("Hello Docker!"));
         router.route("/css/*").handler(StaticHandler.create());
