@@ -10,7 +10,11 @@ import lombok.experimental.SuperBuilder;
 @EqualsAndHashCode(callSuper = true)
 @SuperBuilder
 @NoArgsConstructor
-public class DaySummary extends Summary {
-    @ExcelProperty(index = 0)
-    private String day;
+public class DayCreativeSummary extends DaySummary {
+    @ExcelProperty("图片、视频和幻灯片")
+    private String creative;
+    @ExcelProperty("展示次数")
+    private int display;
+    @ExcelProperty("点击量（全部）")
+    private int click;
 }
