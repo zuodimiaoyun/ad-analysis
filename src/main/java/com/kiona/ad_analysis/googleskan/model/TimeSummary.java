@@ -10,7 +10,11 @@ import lombok.experimental.SuperBuilder;
 @EqualsAndHashCode(callSuper = true)
 @SuperBuilder
 @NoArgsConstructor
-public class DaySummary extends Summary {
-    @ExcelProperty(index = 0)
+public class TimeSummary extends Summary {
+    @ExcelProperty(index = 0, order = 0)
     private String day;
+    @ExcelProperty(value = "周", order = 1)
+    private String week;
+    @ExcelProperty(value = "月", order = 2)
+    private String month;
 }

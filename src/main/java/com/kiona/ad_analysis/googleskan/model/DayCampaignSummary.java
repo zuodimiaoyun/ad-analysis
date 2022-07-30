@@ -10,7 +10,7 @@ import lombok.experimental.SuperBuilder;
 @EqualsAndHashCode(callSuper = true)
 @SuperBuilder
 @NoArgsConstructor
-public class DayCampaignSummary extends DaySummary {
+public class DayCampaignSummary extends TimeSummary {
     @ExcelProperty("广告系列名称")
     private String campaign;
 }

@@ -6,15 +6,43 @@
 </head>
 <body>
 <h1> Google </h1>
+<dl>
+    <dt style="color: deeppink">功能支持</dt>
+    <dd>Campaign: 按天、按Campaign&天统计</dd>
+    <dt style="color: deeppink">文件格式要求</dt>
+    <dd>csv</dd>
+    <dt style="color: deeppink">列名要求</dt>
+    <dd>日期列:"Day"或者"天"</dd>
+    <dd>Campaign列:"Campaign"</dd>
+    <dd>不可用事件列名："Unavailable_SKAdNetwork Conversions" 或 "不可用_SKAdNetwork 转化次数"</dd>
+    <dd>可用事件列名："数字_SKAdNetwork Conversions" 或 "数字_SKAdNetwork 转化次数"，其中数字为事件号</dd>
+</dl>
 <form action="/api/v1/googleskan/analysis" method="post" enctype="multipart/form-data">
     <input type="file" name="files" accept=".csv" multiple>
-    <button type="submit">提交</button>
+    <button type="submit">生成统计表格</button>
 </form>
 
 <h1> Facebook </h1>
+<dl>
+    <dt style="color: deeppink">功能支持</dt>
+    <dd>Campaign：按天、按Campaign&天统计</dd>
+    <dd>素材：按素材&天、素材&周、素材&月统计</dd>
+    <dt style="color: deeppink">文件格式要求</dt>
+    <dd>xls，xlsx</dd>
+    <dt style="color: deeppink">列名要求</dt>
+    <dd>日期要求在第一列，列名随意</dd>
+    <dd>广告系列名称</dd>
+    <dd>图片、视频和幻灯片</dd>
+    <dd>花费金额 (USD)</dd>
+    <dd>展示次数</dd>
+    <dd>点击量（全部）</dd>
+    <dd>应用安装</dd>
+    <dd>购物</dd>
+    <dd>购物转化价值</dd>
+</dl>
 <form action="/api/v1/facebookskan/analysis" method="post" enctype="multipart/form-data">
     <input type="file" name="files" accept=".xlsx,.xls" multiple>
-    <button type="submit">提交</button>
+    <button type="submit">生成统计表格</button>
 </form>
 </body>
 </html>

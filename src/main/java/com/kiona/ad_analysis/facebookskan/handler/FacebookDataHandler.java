@@ -7,7 +7,7 @@ import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy
 import com.kiona.ad_analysis.googleskan.constant.FacebookSkanConstant;
 import com.kiona.ad_analysis.googleskan.model.DayCampaignSummary;
 import com.kiona.ad_analysis.googleskan.model.DayCreativeSummary;
-import com.kiona.ad_analysis.googleskan.model.DaySummary;
+import com.kiona.ad_analysis.googleskan.model.TimeSummary;
 import com.kiona.ad_analysis.googleskan.model.Summary;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
@@ -24,7 +24,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalField;
+import java.time.temporal.WeekFields;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Matcher;
@@ -38,8 +42,23 @@ import java.util.stream.Collectors;
 @Slf4j
 public class FacebookDataHandler implements Handler<HttpServerFileUpload> {
     private static final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-    private final List<Future<List<? extends DaySummary>>> futures = new CopyOnWriteArrayList<>();
+    private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final WeekFields weekFields = WeekFields.of(Locale.getDefault());
+    private TemporalField weekOfYear = weekFields.weekOfYear();
+    private static final List<String> dayExcludeFields = new ArrayList<>();
+    private static final List<String> weekExcludeFields = new ArrayList<>();
+    private static final List<String> monthExcludeFields = new ArrayList<>();
+    private final List<Future<List<? extends TimeSummary>>> futures = new CopyOnWriteArrayList<>();
     private final HttpServerResponse response;
+
+    static {
+        dayExcludeFields.add("week");
+        dayExcludeFields.add("month");
+        weekExcludeFields.add("day");
+        weekExcludeFields.add("month");
+        monthExcludeFields.add("week");
+        monthExcludeFields.add("day");
+    }
 
     public FacebookDataHandler(HttpServerResponse response) {
         this.response = response;
@@ -50,7 +69,7 @@ public class FacebookDataHandler implements Handler<HttpServerFileUpload> {
     public void handle(HttpServerFileUpload upload) {
 
         log.info("paramName:{}, fileName:{}, fileSize:{}, fileCharset:{}", upload.name(), upload.filename(), upload.size(), upload.charset());
-        Promise<List<? extends DaySummary>> promise = Promise.promise();
+        Promise<List<? extends TimeSummary>> promise = Promise.promise();
         futures.add(promise.future());
         FacebookSkanFileHandler handler = new FacebookSkanFileHandler(promise);
         upload
@@ -74,10 +93,10 @@ public class FacebookDataHandler implements Handler<HttpServerFileUpload> {
         });
     }
 
-    private ByteArrayOutputStream getExcelStream(List<List<? extends DaySummary>> summaries) {
+    private ByteArrayOutputStream getExcelStream(List<List<? extends TimeSummary>> summaries) {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         ExcelWriter excelWriter = EasyExcel.write(outputStream).registerWriteHandler(new LongestMatchColumnWidthStyleStrategy()).build();
-        List<? extends DaySummary> data = summaries.stream().flatMap(Collection::stream).collect(Collectors.toList());
+        List<? extends TimeSummary> data = summaries.stream().flatMap(Collection::stream).collect(Collectors.toList());
         try {
             if(data.isEmpty()){
                 outputStream.write("失败".getBytes(StandardCharsets.UTF_8));
@@ -85,9 +104,9 @@ public class FacebookDataHandler implements Handler<HttpServerFileUpload> {
             }
             if(data.get(0) instanceof DayCampaignSummary){
                 List<DayCampaignSummary> list = data.stream().map(d -> (DayCampaignSummary) d).collect(Collectors.toList());
-                List<DaySummary> daySummaries = getDaySummaries(list);
+                List<TimeSummary> daySummaries = getDaySummaries(list);
                 if (!daySummaries.isEmpty()) {
-                    WriteSheet writeSheetDay = EasyExcel.writerSheet("按天").head(DaySummary.class).build();
+                    WriteSheet writeSheetDay = EasyExcel.writerSheet("按天").head(TimeSummary.class).build();
                     excelWriter.write(daySummaries, writeSheetDay);
                 }
 
@@ -105,8 +124,14 @@ public class FacebookDataHandler implements Handler<HttpServerFileUpload> {
                 }).collect(Collectors.toList());
                 List<DayCreativeSummary> dayCreativeSummaries = getDayCreativeSummaries(list);
                 if (!dayCreativeSummaries.isEmpty()) {
-                    WriteSheet writeSheetDayCreative = EasyExcel.writerSheet("按素材天").head(DayCreativeSummary.class).build();
+                    WriteSheet writeSheetDayCreative = EasyExcel.writerSheet("按素材&天").excludeColumnFiledNames(dayExcludeFields).head(DayCreativeSummary.class).build();
                     excelWriter.write(dayCreativeSummaries, writeSheetDayCreative);
+                    List<DayCreativeSummary> creativeSummariesGroupByWeek = getCreativeSummariesGroupByWeek(dayCreativeSummaries);
+                    WriteSheet writeSheetWeekCreative = EasyExcel.writerSheet("按素材&周").excludeColumnFiledNames(weekExcludeFields).head(DayCreativeSummary.class).build();
+                    excelWriter.write(creativeSummariesGroupByWeek, writeSheetWeekCreative);
+                    List<DayCreativeSummary> creativeSummariesGroupByMonth = getCreativeSummariesGroupByMonth(dayCreativeSummaries);
+                    WriteSheet writeSheetMonthCreative = EasyExcel.writerSheet("按素材&月").excludeColumnFiledNames(monthExcludeFields).head(DayCreativeSummary.class).build();
+                    excelWriter.write(creativeSummariesGroupByMonth, writeSheetMonthCreative);
                 }
             }
         } catch (Exception e) {
@@ -118,13 +143,13 @@ public class FacebookDataHandler implements Handler<HttpServerFileUpload> {
     }
 
 
-    private List<DaySummary> getDaySummaries(List<DayCampaignSummary> summaries) {
+    private List<TimeSummary> getDaySummaries(List<DayCampaignSummary> summaries) {
         return summaries
             .stream()
-            .map(DaySummary::getDay)
+            .map(TimeSummary::getDay)
             .distinct()
             .map(day -> getSummaryByDay(day, summaries))
-            .sorted(Comparator.comparing(DaySummary::getDay))
+            .sorted(Comparator.comparing(TimeSummary::getDay))
             .collect(Collectors.toList());
     }
 
@@ -151,11 +176,49 @@ public class FacebookDataHandler implements Handler<HttpServerFileUpload> {
     }
 
     @SneakyThrows
-    private DaySummary getSummaryByDay(String day, List<? extends DaySummary> summaries) {
+    private List<DayCreativeSummary> getCreativeSummariesGroupByMonth(List<DayCreativeSummary> summaries) {
+        Map<Integer, Map<String, List<DayCreativeSummary>>> groupData= summaries.stream().collect(Collectors.groupingBy(s -> LocalDate.parse(s.getDay(), dateTimeFormatter).getMonthValue(), Collectors.groupingBy(s -> s.getCreative(), Collectors.toList())));
+        return groupData.entrySet().stream().flatMap(mItem ->
+            mItem.getValue().entrySet().stream().map(cItem ->
+                DayCreativeSummary.builder()
+                    .month(mItem.getKey() + "月")
+                    .creative(cItem.getKey())
+                    .click(cItem.getValue().stream().mapToInt(DayCreativeSummary::getClick).sum())
+                    .display(cItem.getValue().stream().mapToInt(DayCreativeSummary::getDisplay).sum())
+                    .install(cItem.getValue().stream().mapToInt(DayCreativeSummary::getInstall).sum())
+                    .purchase(cItem.getValue().stream().mapToInt(DayCreativeSummary::getPurchase).sum())
+                    .purchaseValue(cItem.getValue().stream().mapToDouble(DayCreativeSummary::getPurchaseValue).sum())
+                    .costMoney(cItem.getValue().stream().mapToDouble(DayCreativeSummary::getCostMoney).sum())
+                    .build())
+        ).collect(Collectors.toList());
+    }
+
+
+    @SneakyThrows
+    private List<DayCreativeSummary> getCreativeSummariesGroupByWeek(List<DayCreativeSummary> summaries) {
+
+        Map<Integer, Map<String, List<DayCreativeSummary>>> groupData= summaries.stream().collect(Collectors.groupingBy(s -> LocalDate.parse(s.getDay(), dateTimeFormatter).get(weekOfYear), Collectors.groupingBy(DayCreativeSummary::getCreative, Collectors.toList())));
+        return groupData.entrySet().stream().flatMap(wItem ->
+            wItem.getValue().entrySet().stream().map(cItem ->
+                DayCreativeSummary.builder()
+                    .week(wItem.getKey() + "周（开始日期：" + LocalDate.now().with(weekFields.weekOfYear(), wItem.getKey()).with(weekFields.dayOfWeek(), 2) +"）" )
+                    .creative(cItem.getKey())
+                    .click(cItem.getValue().stream().mapToInt(DayCreativeSummary::getClick).sum())
+                    .display(cItem.getValue().stream().mapToInt(DayCreativeSummary::getDisplay).sum())
+                    .install(cItem.getValue().stream().mapToInt(DayCreativeSummary::getInstall).sum())
+                    .purchase(cItem.getValue().stream().mapToInt(DayCreativeSummary::getPurchase).sum())
+                    .purchaseValue(cItem.getValue().stream().mapToDouble(DayCreativeSummary::getPurchaseValue).sum())
+                    .costMoney(cItem.getValue().stream().mapToDouble(DayCreativeSummary::getCostMoney).sum())
+                    .build())
+        ).collect(Collectors.toList());
+    }
+
+    @SneakyThrows
+    private TimeSummary getSummaryByDay(String day, List<? extends TimeSummary> summaries) {
         Date summaryDay = dateFormat.parse(day);
         Date installDay = Date.from(summaryDay.toInstant().plus(1, ChronoUnit.DAYS));
         Date purchaseDay = Date.from(summaryDay.toInstant().plus(2, ChronoUnit.DAYS));
-        return DaySummary.builder()
+        return TimeSummary.builder()
             .day(day)
             .costMoney(summaries.stream().filter(s -> Objects.equals(s.getDay(), day)).mapToDouble(Summary::getCostMoney).sum())
             .install(summaries.stream().filter(s -> Objects.equals(s.getDay(), dateFormat.format(installDay))).mapToInt(Summary::getInstall).sum())

@@ -1,26 +1,16 @@
 package com.kiona.ad_analysis.facebookskan.handler;
 
 import com.alibaba.excel.EasyExcel;
-import com.kiona.ad_analysis.googleskan.constant.GoogleSkanConstant;
-import com.kiona.ad_analysis.googleskan.constant.GoogleSkanPurchaseValue;
 import com.kiona.ad_analysis.googleskan.model.DayCampaignSummary;
 import com.kiona.ad_analysis.googleskan.model.DayCreativeSummary;
-import com.kiona.ad_analysis.googleskan.model.DaySummary;
-import com.kiona.ad_analysis.googleskan.model.Summary;
+import com.kiona.ad_analysis.googleskan.model.TimeSummary;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.parsetools.RecordParser;
-import lombok.Builder;
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayInputStream;
-import java.nio.charset.Charset;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * @author yangshuaichao
@@ -30,10 +20,10 @@ import java.util.stream.IntStream;
 @Slf4j
 public class FacebookSkanFileHandler implements Handler<Buffer> {
 
-    private final Promise<List<? extends DaySummary>> donePromise;
+    private final Promise<List<? extends TimeSummary>> donePromise;
     private final Buffer buffer = Buffer.buffer();
 
-    public FacebookSkanFileHandler(Promise<List<? extends DaySummary>> promise) {
+    public FacebookSkanFileHandler(Promise<List<? extends TimeSummary>> promise) {
         this.donePromise = promise;
     }
 
@@ -49,7 +39,7 @@ public class FacebookSkanFileHandler implements Handler<Buffer> {
 
 
     public void end() {
-        List<? extends DaySummary> summaries;
+        List<? extends TimeSummary> summaries;
         List<DayCreativeSummary> summaryList1 = EasyExcel.read(new ByteArrayInputStream(buffer.getBytes())).head(DayCreativeSummary.class).doReadAllSync();
         if(!summaryList1.isEmpty() && summaryList1.get(0).getCreative() != null){
             summaries = summaryList1;

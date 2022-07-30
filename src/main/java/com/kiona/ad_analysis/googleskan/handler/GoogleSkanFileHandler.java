@@ -3,7 +3,7 @@ package com.kiona.ad_analysis.googleskan.handler;
 import com.kiona.ad_analysis.googleskan.constant.GoogleSkanConstant;
 import com.kiona.ad_analysis.googleskan.constant.GoogleSkanPurchaseValue;
 import com.kiona.ad_analysis.googleskan.model.DayCampaignSummary;
-import com.kiona.ad_analysis.googleskan.model.DaySummary;
+import com.kiona.ad_analysis.googleskan.model.TimeSummary;
 import com.kiona.ad_analysis.googleskan.model.Summary;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
@@ -143,7 +143,7 @@ public class GoogleSkanFileHandler implements Handler<Buffer> {
         if (campaign != null) {
             summary = DayCampaignSummary.builder().day(day).campaign(campaign).build();
         } else {
-            summary = DaySummary.builder().day(day).build();
+            summary = TimeSummary.builder().day(day).build();
         }
         summary.setInstall(install);
         summary.setPurchase(purchase);

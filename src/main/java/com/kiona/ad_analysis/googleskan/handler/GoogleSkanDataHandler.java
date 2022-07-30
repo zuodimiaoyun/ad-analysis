@@ -5,7 +5,7 @@ import com.alibaba.excel.ExcelWriter;
 import com.alibaba.excel.write.metadata.WriteSheet;
 import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
 import com.kiona.ad_analysis.googleskan.model.DayCampaignSummary;
-import com.kiona.ad_analysis.googleskan.model.DaySummary;
+import com.kiona.ad_analysis.googleskan.model.TimeSummary;
 import com.kiona.ad_analysis.googleskan.model.Summary;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
@@ -74,9 +74,9 @@ public class GoogleSkanDataHandler implements Handler<HttpServerFileUpload> {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         ExcelWriter excelWriter = EasyExcel.write(outputStream).registerWriteHandler(new LongestMatchColumnWidthStyleStrategy()).build();
         try {
-            List<DaySummary> daySummaries = getDaySummaries(summaries);
+            List<TimeSummary> daySummaries = getDaySummaries(summaries);
             if (!daySummaries.isEmpty()) {
-                WriteSheet writeSheetDay = EasyExcel.writerSheet("按天").head(DaySummary.class).build();
+                WriteSheet writeSheetDay = EasyExcel.writerSheet("按天").head(TimeSummary.class).build();
                 excelWriter.write(daySummaries, writeSheetDay);
             }
 
@@ -93,12 +93,12 @@ public class GoogleSkanDataHandler implements Handler<HttpServerFileUpload> {
         return outputStream;
     }
 
-    private List<DaySummary> getDaySummaries(List<List<Summary>> summaries) {
+    private List<TimeSummary> getDaySummaries(List<List<Summary>> summaries) {
         return summaries.stream()
             .flatMap(Collection::stream)
-            .filter(s -> s.getClass() == DaySummary.class)
-            .map(s -> (DaySummary) s)
-            .sorted(Comparator.comparing(DaySummary::getDay))
+            .filter(s -> s.getClass() == TimeSummary.class)
+            .map(s -> (TimeSummary) s)
+            .sorted(Comparator.comparing(TimeSummary::getDay))
             .collect(Collectors.toList());
     }
 
